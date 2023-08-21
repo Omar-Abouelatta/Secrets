@@ -4,7 +4,8 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require('mongoose');
-const md5 = require('md5');
+const bcrypt = require('bcryptjs');
+const salt = bcrypt.genSaltSync(10);
 
 
 const app = express();
@@ -47,16 +48,31 @@ async function main() {
 
     app.post('/login', async function (req, res) {
         const username = req.body.username;
-        const password = md5(req.body.password);
+        const password = req.body.password;
 
         await User.findOne({email: username})
-        .then(function (foundUser){
-            if (foundUser.password === password){
-                res.render("secrets");
-            }
-            else{
-                res.send("password is incorrect");
-            }
+        .then(async function (foundUser){
+
+            
+           const result = bcrypt.compareSync(req.body.password, foundUser.password);
+
+           if(result === true) {
+            res.render("secrets");
+           }
+           else{
+            res.send("error wrong password: ")
+           }
+
+            //bcrypt.compare can be used here just like the original package as demonstrated here but I think the other method is easier
+
+            // bcrypt.compare(req.body.password, foundUser.password, function (err, result){
+            //     if (result === true) {
+            //         res.render("secrets");
+            //     }
+            //     else {
+            //         res.send("error wrong password");
+            //     }
+            // });
         })
         .catch(function (err) {
             res.send("err");
@@ -68,9 +84,13 @@ async function main() {
     });
 
     app.post('/register', function (req, res){
+
+        const hash = bcrypt.hashSync(req.body.password, salt);
+
+
         const newUser = new User({
             email: req.body.username,
-            password: md5(req.body.password)
+            password: hash
         });
 
         newUser.save()
